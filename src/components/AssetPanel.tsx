@@ -41,12 +41,19 @@ export default function AssetPanel({ assets, open, onToggle, onRemoveAsset, onCl
                   </Button>
                 </div>
               </div>
-              <Input
-                placeholder="Search..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="h-8 text-sm"
-              />
+              <div className="flex flex-col gap-1">
+                <label htmlFor="asset-search" className="sr-only">
+                  Search
+                </label>
+                <Input
+                  id="asset-search"
+                  placeholder="Search..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="h-8 text-sm"
+                  aria-label="Search"
+                />
+              </div>
             </div>
             <div className="p-4 grid grid-cols-3 gap-2">
               {filtered.map((asset) => (
