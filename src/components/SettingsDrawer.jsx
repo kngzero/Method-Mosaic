@@ -1,7 +1,6 @@
 import React from "react";
 import { Settings2 } from "lucide-react";
-
-const cx = (...cls) => cls.filter(Boolean).join(" ");
+import { cx } from "@/utils/cx";
 
 export default function SettingsDrawer({ open, onToggle, children }) {
   return (

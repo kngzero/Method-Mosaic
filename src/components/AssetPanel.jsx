@@ -2,8 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LayoutGrid, Trash2 } from "lucide-react";
-
-const cx = (...cls) => cls.filter(Boolean).join(" ");
+import { cx } from "@/utils/cx";
 
 /**
  * @typedef {{id:string, src:string, name:string, w?:number, h?:number}} Asset
