@@ -1,214 +1,87 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
-import { LayoutGrid, GripVertical, Download, FileDown, Upload, ImagePlus, RotateCcw, Trash2, Image as ImageIcon, ChevronDown, ChevronRight, HelpCircle, X, Archive, ArchiveRestore, Undo2, Redo2, Star } from "lucide-react";
+import { GripVertical, Download, FileDown, Upload, ImagePlus, RotateCcw, Trash2, Image as ImageIcon, HelpCircle, X, Undo2, Redo2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 // NOTE: Replaced custom Select with a reliable native <select> for desktop (Tauri) compatibility
 import * as htmlToImage from "html-to-image";
 import jsPDF from "jspdf";
 import Review from "@/components/Review";
 import AssetPanel from "@/components/AssetPanel";
-import SettingsDrawer from "@/components/SettingsDrawer";
-import TemplateSelector, { TEMPLATES } from "@/components/TemplateSelector";
+import { TEMPLATES } from "@/components/TemplateSelector";
 import SafeMarginOverlay from "@/components/SafeMarginOverlay";
 import VirtualImage from "@/components/VirtualImage";
+import SettingsPanel from "@/components/SettingsPanel";
+import CropDialog from "@/components/CropDialog";
+import useBoardState, { BRANDING_PRESETS, withDefaultCrop } from "@/hooks/useBoardState";
 import pkg from "../package.json";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { cx } from "@/utils/cx";
 const isTauri = () => typeof window !== "undefined" && (window.__TAURI__ || window.__TAURI_IPC__ || window.__TAURI_INTERNALS__);
-/** @typedef {{x:number,y:number,zoom:number}} Crop */
-/** @typedef {{id:string, src:string, w?:number, h?:number, crop?:Crop}} BoardImage */
-const withDefaultCrop = (img) => ({
-  colSpan: img?.colSpan ?? 1,
-  rowSpan: img?.rowSpan ?? 1,
-  ...img,
-  crop: {
-    x: img?.crop?.x ?? 50,
-    y: img?.crop?.y ?? 50,
-    zoom: img?.crop?.zoom ?? 1,
-  },
-});
-
-const BRANDING_PRESETS = {
-  "left-s": {
-    header: "flex items-center gap-3 text-left",
-    logo: 32,
-    title: "text-xl",
-    desc: "text-xs",
-  },
-  "left-m": {
-    header: "flex items-center gap-3 text-left",
-    logo: 40,
-    title: "text-2xl",
-    desc: "text-sm",
-  },
-  "center-s": {
-    header: "flex flex-col items-center gap-3 text-center",
-    logo: 32,
-    title: "text-xl",
-    desc: "text-xs",
-  },
-  "center-m": {
-    header: "flex flex-col items-center gap-3 text-center",
-    logo: 40,
-    title: "text-2xl",
-    desc: "text-sm",
-  },
-};
-
 export default function MethodMosaic() {
-  const [images, _setImages] = useState(/** @type {BoardImage[]} */([]));
-  const [assets, _setAssets] = useState([]);
+  const {
+    images,
+    setImages,
+    assets,
+    setAssets,
+    boardTitle,
+    setBoardTitle,
+    boardDescription,
+    setBoardDescription,
+    showText,
+    setShowText,
+    logoSrc,
+    setLogoSrc,
+    logoSize,
+    setLogoSize,
+    logoRounded,
+    setLogoRounded,
+    brandingPreset,
+    setBrandingPreset,
+    titleClass,
+    setTitleClass,
+    descClass,
+    setDescClass,
+    gap,
+    setGap,
+    columns,
+    setColumns,
+    rows,
+    setRows,
+    layoutMode,
+    setLayoutMode,
+    rounded,
+    setRounded,
+    shadow,
+    setShadow,
+    showSafeMargin,
+    setShowSafeMargin,
+    boardPadding,
+    setBoardPadding,
+    selectedTemplate,
+    setSelectedTemplate,
+    boardWidth,
+    setBoardWidth,
+    boardHeight,
+    setBoardHeight,
+    boardAspect,
+    setBoardAspect,
+    zoom,
+    setZoom,
+    bg,
+    setBg,
+    undo,
+    redo,
+    resetBoard,
+    history,
+    future,
+  } = useBoardState();
   const [assetPanelOpen, setAssetPanelOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [reviewOpen, setReviewOpen] = useState(false);
   const originalOrderRef = useRef([]);
   const [draggingId, setDraggingId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
-  const [cropOpenId, setCropOpenId] = useState(null);
-  const [tempCrop, setTempCrop] = useState({ x: 50, y: 50, zoom: 1 });
-  const previewRef = useRef(null);
-  const dragStateRef = useRef(null);
-  const [boardTitle, _setBoardTitle] = useState("");
-  const [boardDescription, _setBoardDescription] = useState("");
-  const [showText, _setShowText] = useState(true);
-  const [logoSrc, _setLogoSrc] = useState(null);
-  const [logoSize, _setLogoSize] = useState(BRANDING_PRESETS["left-m"].logo);
-  const [logoRounded, _setLogoRounded] = useState(true);
-  const logoInputRef = useRef(null);
-  const [brandingPreset, _setBrandingPreset] = useState("left-m");
-  const [titleClass, _setTitleClass] = useState(BRANDING_PRESETS["left-m"].title);
-  const [descClass, _setDescClass] = useState(BRANDING_PRESETS["left-m"].desc);
-  const [gap, _setGap] = useState(12);
-  const [columns, _setColumns] = useState(4);
-  const [rows, _setRows] = useState(3);
-  const [layoutMode, _setLayoutMode] = useState("auto");
-  const [rounded, _setRounded] = useState(true);
-  const [shadow, _setShadow] = useState(true);
-  const [showSafeMargin, _setShowSafeMargin] = useState(false);
-  const [boardPadding, _setBoardPadding] = useState(24);
-  const [selectedTemplate, _setSelectedTemplate] = useState("custom");
-  const [boardWidth, _setBoardWidth] = useState(null);
-  const [boardHeight, _setBoardHeight] = useState(null);
-  const [boardAspect, _setBoardAspect] = useState(undefined);
-  const [zoom, _setZoom] = useState(100);
-  const [bg, _setBg] = useState("#ffffff");
-
-  const [history, setHistory] = useState([]);
-  const [future, setFuture] = useState([]);
-
-  const getSnapshot = useCallback(() => ({
-    images: structuredClone(images),
-    assets: structuredClone(assets),
-    boardTitle,
-    boardDescription,
-    showText,
-    logoSrc,
-    logoSize,
-    logoRounded,
-    brandingPreset,
-    titleClass,
-    descClass,
-    gap,
-    columns,
-    rows,
-    layoutMode,
-    rounded,
-    shadow,
-    showSafeMargin,
-    boardPadding,
-    selectedTemplate,
-    boardWidth,
-    boardHeight,
-    boardAspect,
-    zoom,
-    bg,
-  }), [images, assets, boardTitle, boardDescription, showText, logoSrc, logoSize, logoRounded, brandingPreset, titleClass, descClass, gap, columns, rows, layoutMode, rounded, shadow, showSafeMargin, boardPadding, selectedTemplate, boardWidth, boardHeight, boardAspect, zoom, bg]);
-
-  const pushHistory = useCallback(() => {
-    setHistory((h) => [...h, getSnapshot()]);
-    setFuture([]);
-  }, [getSnapshot]);
-
-  const setImages = useCallback((v) => { pushHistory(); _setImages(v); }, [pushHistory]);
-  const setAssets = useCallback((v) => { pushHistory(); _setAssets(v); }, [pushHistory]);
-  const setBoardTitle = useCallback((v) => { pushHistory(); _setBoardTitle(v); }, [pushHistory]);
-  const setBoardDescription = useCallback((v) => { pushHistory(); _setBoardDescription(v); }, [pushHistory]);
-  const setShowText = useCallback((v) => { pushHistory(); _setShowText(v); }, [pushHistory]);
-  const setLogoSrc = useCallback((v) => { pushHistory(); _setLogoSrc(v); }, [pushHistory]);
-  const setLogoSize = useCallback((v) => { pushHistory(); _setLogoSize(v); }, [pushHistory]);
-  const setLogoRounded = useCallback((v) => { pushHistory(); _setLogoRounded(v); }, [pushHistory]);
-  const setBrandingPreset = useCallback((v) => { pushHistory(); _setBrandingPreset(v); }, [pushHistory]);
-  const setTitleClass = useCallback((v) => { pushHistory(); _setTitleClass(v); }, [pushHistory]);
-  const setDescClass = useCallback((v) => { pushHistory(); _setDescClass(v); }, [pushHistory]);
-  const setGap = useCallback((v) => { pushHistory(); _setGap(v); }, [pushHistory]);
-  const setColumns = useCallback((v) => { pushHistory(); _setColumns(v); }, [pushHistory]);
-  const setRows = useCallback((v) => { pushHistory(); _setRows(v); }, [pushHistory]);
-  const setLayoutMode = useCallback((v) => { pushHistory(); _setLayoutMode(v); }, [pushHistory]);
-  const setRounded = useCallback((v) => { pushHistory(); _setRounded(v); }, [pushHistory]);
-  const setShadow = useCallback((v) => { pushHistory(); _setShadow(v); }, [pushHistory]);
-  const setShowSafeMargin = useCallback((v) => { pushHistory(); _setShowSafeMargin(v); }, [pushHistory]);
-  const setBoardPadding = useCallback((v) => { pushHistory(); _setBoardPadding(v); }, [pushHistory]);
-  const setSelectedTemplate = useCallback((v) => { pushHistory(); _setSelectedTemplate(v); }, [pushHistory]);
-  const setBoardWidth = useCallback((v) => { pushHistory(); _setBoardWidth(v); }, [pushHistory]);
-  const setBoardHeight = useCallback((v) => { pushHistory(); _setBoardHeight(v); }, [pushHistory]);
-  const setBoardAspect = useCallback((v) => { pushHistory(); _setBoardAspect(v); }, [pushHistory]);
-  const setZoom = useCallback((v) => { pushHistory(); _setZoom(v); }, [pushHistory]);
-  const setBg = useCallback((v) => { pushHistory(); _setBg(v); }, [pushHistory]);
-
-  const applySnapshot = useCallback((snap) => {
-    _setImages(snap.images || []);
-    _setAssets(snap.assets || []);
-    _setBoardTitle(snap.boardTitle || "");
-    _setBoardDescription(snap.boardDescription || "");
-    _setShowText(snap.showText ?? true);
-    _setLogoSrc(snap.logoSrc || null);
-    _setLogoSize(snap.logoSize ?? BRANDING_PRESETS["left-m"].logo);
-    _setLogoRounded(snap.logoRounded ?? true);
-    _setBrandingPreset(snap.brandingPreset || "left-m");
-    _setTitleClass(snap.titleClass || BRANDING_PRESETS["left-m"].title);
-    _setDescClass(snap.descClass || BRANDING_PRESETS["left-m"].desc);
-    _setGap(snap.gap ?? 12);
-    _setColumns(snap.columns ?? 4);
-    _setRows(snap.rows ?? 3);
-    _setLayoutMode(snap.layoutMode || "auto");
-    _setRounded(snap.rounded ?? true);
-    _setShadow(snap.shadow ?? true);
-    _setShowSafeMargin(snap.showSafeMargin ?? false);
-    _setBoardPadding(snap.boardPadding ?? 24);
-    _setSelectedTemplate(snap.selectedTemplate || "custom");
-    _setBoardWidth(snap.boardWidth ?? null);
-    _setBoardHeight(snap.boardHeight ?? null);
-    _setBoardAspect(snap.boardAspect);
-    _setZoom(snap.zoom ?? 100);
-    _setBg(snap.bg || "#ffffff");
-  }, []);
-
-  const undo = useCallback(() => {
-    setHistory((h) => {
-      if (!h.length) return h;
-      const prev = h[h.length - 1];
-      setFuture((f) => [getSnapshot(), ...f]);
-      applySnapshot(prev);
-      return h.slice(0, -1);
-    });
-  }, [applySnapshot, getSnapshot]);
-
-  const redo = useCallback(() => {
-    setFuture((f) => {
-      if (!f.length) return f;
-      const next = f[0];
-      setHistory((h) => [...h, getSnapshot()]);
-      applySnapshot(next);
-      return f.slice(1);
-    });
-  }, [applySnapshot, getSnapshot]);
-
-  const [brandingOpen, setBrandingOpen] = useState(true);
-  const [layoutOpen, setLayoutOpen] = useState(true);
+  const [cropImageId, setCropImageId] = useState(null);
   const [exportFormat, setExportFormat] = useState("png");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
@@ -217,7 +90,6 @@ export default function MethodMosaic() {
   const [infoOpen, setInfoOpen] = useState(false);
   const boardRef = useRef(null);
   const fileInputRef = useRef(null);
-  const boardFileRef = useRef(null);
   const gridRef = useRef(null);
   const spanDragRef = useRef(null);
   const infoButtonRef = useRef(null);
@@ -566,39 +438,18 @@ export default function MethodMosaic() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [handleExport, undo, redo]);
-  const openCrop = (id) => { const img = images.find((i) => i.id === id); const c = withDefaultCrop(img).crop; setTempCrop({ ...c }); setCropOpenId(id); };
-  const closeCrop = useCallback(() => setCropOpenId(null), []);
-  const applyCrop = useCallback(() => {
-    if (!cropOpenId) return;
-    setImages((prev) =>
-      prev.map((im) => (im.id === cropOpenId ? { ...im, crop: { ...tempCrop } } : im))
-    );
-    setCropOpenId(null);
-  }, [cropOpenId, tempCrop]);
-  const onPreviewMouseDown = (e) => { if (!previewRef.current) return; dragStateRef.current = { dragging: true, startX: e.clientX, startY: e.clientY, startCrop: { ...tempCrop } }; };
-  const onPreviewMouseMove = (e) => { const st = dragStateRef.current; if (!st || !st.dragging || !previewRef.current) return; const box = previewRef.current.getBoundingClientRect(); const dx = ((e.clientX - st.startX) / box.width) * 100; const dy = ((e.clientY - st.startY) / box.height) * 100; setTempCrop((c) => ({ ...c, x: clamp(st.startCrop.x + dx, 0, 100), y: clamp(st.startCrop.y + dy, 0, 100) })); };
-  const onPreviewMouseUpLeave = () => { if (dragStateRef.current) dragStateRef.current.dragging = false; };
-  useEffect(() => { const el = previewRef.current; if (!el) return; const onWheel = (e) => { e.preventDefault(); setTempCrop((c) => ({ ...c, zoom: clamp((c.zoom || 1) + (e.deltaY > 0 ? -0.05 : 0.05), 1, 4) })); }; el.addEventListener("wheel", onWheel, { passive: false }); return () => el.removeEventListener("wheel", onWheel); }, [cropOpenId]);
-  useEffect(() => {
-    const onKey = (e) => {
-      if (!cropOpenId) return;
-      if (e.key === "Escape") return closeCrop();
-      if (e.key === "Enter") return applyCrop();
-      const step = e.shiftKey ? 2 : 0.5;
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
-        e.preventDefault();
-        setTempCrop((c) => ({
-          ...c,
-          x: clamp(c.x + (e.key === "ArrowRight" ? step : e.key === "ArrowLeft" ? -step : 0), 0, 100),
-          y: clamp(c.y + (e.key === "ArrowDown" ? step : e.key === "ArrowUp" ? -step : 0), 0, 100),
-        }));
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [cropOpenId, closeCrop, applyCrop]);
-  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-  const SelectBox = ({ value, onChange, children }) => (<select className="input" value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>);
+  const openCrop = (id) => setCropImageId(id);
+  const closeCrop = useCallback(() => setCropImageId(null), []);
+  const handleCropApply = (crop) => {
+    if (!cropImageId) return;
+    setImages((prev) => prev.map((im) => (im.id === cropImageId ? { ...im, crop } : im)));
+    setCropImageId(null);
+  };
+  const handleResetSettings = useCallback(() => {
+    resetBoard();
+    setExportFormat("png");
+    setTimeout(() => setGridCell(getCellPx()), 0);
+  }, [resetBoard]);
   function onResizeStart(id){ return (e)=>{ if(layoutMode !== "square") return; const it = images.find(i=>i.id===id); if(!it) return; spanDragRef.current = { id, sx: e.clientX, sy: e.clientY, baseC: it.colSpan || 1, baseR: it.rowSpan || 1 }; window.addEventListener("mousemove", onResizing); window.addEventListener("mouseup", onResizeEnd); }; }
   function onResizing(e){ const st = spanDragRef.current; if(!st) return; const cell = getCellPx(); const dx = e.clientX - st.sx, dy = e.clientY - st.sy; const addC = Math.round(dx / (cell + gap)); const addR = Math.round(dy / (cell + gap)); const nc = Math.max(1, Math.min(columns, (st.baseC || 1) + addC)); const nr = Math.max(1, (st.baseR || 1) + addR); setImages(prev => prev.map(i => i.id===st.id ? { ...i, colSpan: nc, rowSpan: nr } : i)); }
   function onResizeEnd(){ window.removeEventListener("mousemove", onResizing); window.removeEventListener("mouseup", onResizeEnd); spanDragRef.current = null; }
@@ -625,33 +476,6 @@ export default function MethodMosaic() {
     }
     setTimeout(() => setGridCell(getCellPx()), 0);
   };
-
-  const resetSettings = useCallback(() => {
-    setBoardTitle("");
-    setBoardDescription("");
-    setShowText(true);
-    setLogoSrc(null);
-    setLogoSize(40);
-    setLogoRounded(true);
-    setGap(12);
-    setColumns(4);
-    setRows(3);
-    setLayoutMode("auto");
-    setRounded(true);
-    setShadow(true);
-    setShowSafeMargin(false);
-    setBoardPadding(24);
-    setSelectedTemplate("custom");
-    setBoardWidth(null);
-    setBoardHeight(null);
-    setBoardAspect(undefined);
-    setZoom(100);
-    setBg("#ffffff");
-    setBrandingOpen(true);
-    setLayoutOpen(true);
-    setExportFormat("png");
-    setTimeout(() => setGridCell(getCellPx()), 0);
-  }, []);
 
   const Header = () => (
     <header ref={headerRef} className="fixed top-0 left-0 w-full bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 z-50">
@@ -831,139 +655,57 @@ export default function MethodMosaic() {
         </div>
       </div>
     </div>
-    <SettingsDrawer open={settingsOpen} onToggle={() => setSettingsOpen((v) => !v)}>
-      <div className="h-full overflow-y-auto space-y-6">
-        <div className="pb-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Moodboard Settings</h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={resetSettings}
-              aria-label="Reset settings"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        <div className="space-y-6">
-          <div className="space-y-4">
-            <button type="button" className="w-full flex items-center justify-between px-0 py-1" onClick={() => setBrandingOpen((v) => !v)} aria-expanded={brandingOpen}>
-              <span className="flex items-center gap-2 text-sm"><ImageIcon className="h-4 w-4"/>Branding</span>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2"><Switch checked={showText} onCheckedChange={setShowText} id="showText"/><Label htmlFor="showText" className="text-sm">Show</Label></div>
-                {brandingOpen ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
-              </div>
-            </button>
-            {brandingOpen && (
-              <>
-                <div className="space-y-3">
-                  <Input placeholder="Board title" value={boardTitle} onChange={(e) => setBoardTitle(e.target.value)} />
-                  <Input placeholder="Short description" value={boardDescription} onChange={(e) => setBoardDescription(e.target.value)} />
-                  <div className="space-y-2">
-                    <Label className="text-sm">Preset</Label>
-                    <select
-                      className="input"
-                      value={brandingPreset}
-                      onChange={(e) => setBrandingPreset(e.target.value)}
-                    >
-                      <option value="left-s">Left S</option>
-                      <option value="left-m">Left M</option>
-                      <option value="center-s">Center S</option>
-                      <option value="center-m">Center M</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => logoInputRef.current?.click()}>Upload Logo</Button>
-                    {logoSrc && <Button variant="ghost" onClick={() => setLogoSrc(null)}>Remove</Button>}
-                  </div>
-                  <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onLogoFiles(e.target.files)} />
-                  {logoSrc && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2"><Label className="text-sm">Logo size</Label><Slider min={16} max={128} step={1} value={[logoSize]} onValueChange={([v]) => setLogoSize(v)} /><div className="text-xs text-neutral-500">{logoSize}px</div></div>
-                      <div className="flex items-center gap-2 mt-6"><Switch checked={logoRounded} onCheckedChange={setLogoRounded} id="logoRound"/><Label htmlFor="logoRound">Rounded</Label></div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-          <div className="space-y-4">
-            <button type="button" className="w-full flex items-center justify-between px-0 py-1" onClick={() => setLayoutOpen((v) => !v)} aria-expanded={layoutOpen}>
-              <span className="flex items-center gap-2 text-sm"><LayoutGrid className="h-4 w-4"/>Layout</span>
-              {layoutOpen ? <ChevronDown className="h-4 w-4"/> : <ChevronRight className="h-4 w-4"/>}
-            </button>
-            {layoutOpen && (
-              <>
-                <div className="space-y-2">
-                  <Label className="text-sm">Template</Label>
-                  <TemplateSelector value={selectedTemplate} onChange={handleTemplateChange} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">Layout mode</Label>
-                  <SelectBox value={layoutMode} onChange={setLayoutMode}>
-                    <option value="auto">Automatic (Masonry)</option>
-                    <option value="grid">Grid (Rows × Columns)</option>
-                    <option value="square">Flexible grid (resizable tiles)</option>
-                  </SelectBox>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">Zoom</Label>
-                  <div className="px-1"><Slider min={50} max={200} step={10} value={[zoom]} onValueChange={([v]) => setZoom(v)} /></div>
-                  <div className="text-xs text-neutral-500">{zoom}%</div>
-                </div>
-                <div className={cx("grid gap-4", layoutMode === "grid" ? "grid-cols-2" : "grid-cols-1")}> 
-                  <div className="space-y-2">
-                    <Label className="text-sm">Columns</Label>
-                    <div className="px-1"><Slider min={1} max={12} step={1} value={[columns]} onValueChange={([v]) => setColumns(v)} /></div>
-                    <div className="text-xs text-neutral-500">{columns} column(s)</div>
-                  </div>
-                  {layoutMode === "grid" && (
-                    <div className="space-y-2">
-                      <Label className="text-sm">Row height</Label>
-                      <div className="px-1"><Slider min={1} max={12} step={1} value={[rows]} onValueChange={([v]) => setRows(v)} /></div>
-                      <div className="text-xs text-neutral-500">{rows} row(s)</div>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-2"><Label className="text-sm">Gaps</Label><div className="px-1"><Slider min={0} max={48} step={1} value={[gap]} onValueChange={([v]) => setGap(v)} /></div><div className="text-xs text-neutral-500">{gap}px</div></div>
-                <div className="space-y-2"><Label className="text-sm">Board padding</Label><div className="px-1"><Slider min={0} max={96} step={2} value={[boardPadding]} onValueChange={([v]) => setBoardPadding(v)} /></div><div className="text-xs text-neutral-500">{boardPadding}px</div></div>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2"><Switch checked={rounded} onCheckedChange={setRounded} id="rounded"/><Label htmlFor="rounded">Rounded corners</Label></div>
-                  <div className="flex items-center gap-2"><Switch checked={shadow} onCheckedChange={setShadow} id="shadow"/><Label htmlFor="shadow">Soft shadow</Label></div>
-                </div>
-                <div className="flex items-center gap-2"><Switch checked={showSafeMargin} onCheckedChange={setShowSafeMargin} id="safe-margin"/><Label htmlFor="safe-margin">Show safe margin</Label></div>
-                <div className="space-y-2"><Label className="text-sm">Background</Label><div className="flex items-center gap-3"><Input type="color" value={bg} onChange={(e) => setBg(e.target.value)} className="w-16 h-10 p-1 cursor-pointer"/><Input type="text" value={bg} onChange={(e) => setBg(e.target.value)} /></div></div>
-              </>
-            )}
-          </div>
-          <div className="space-y-3">
-            <Label className="text-sm">Project</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <Button onClick={saveBoardFile} className="w-full"><Archive className="h-4 w-4 mr-2"/>Save</Button>
-              <Button variant="secondary" onClick={() => boardFileRef.current?.click()} className="w-full"><ArchiveRestore className="h-4 w-4 mr-2"/>Load</Button>
-            </div>
-            <input ref={boardFileRef} type="file" accept=".mlmboard" className="hidden" onChange={(e)=>{ const f = e.target.files?.[0]; if(f) loadBoardFile(f); e.target.value=""; }} />
-          </div>
-          <div className="space-y-3">
-            <Label className="text-sm">Export</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <SelectBox value={exportFormat} onChange={setExportFormat}>
-                <option value="png">PNG</option>
-                <option value="jpeg">JPEG</option>
-                <option value="webp">WEBP</option>
-              </SelectBox>
-              <Button onClick={handleExport} className="w-full" variant="default"><Download className="h-4 w-4 mr-2"/>Save Image</Button>
-              <div className="col-span-2"><Button onClick={exportAsPDF} variant="secondary" className="w-full"><FileDown className="h-4 w-4 mr-2"/>Save as PDF</Button></div>
-              {exportError && <div className="col-span-2 text-xs text-red-600">{exportError}</div>}
-            </div>
-            <p className="text-xs text-neutral-500">Tip: Press ⌘/Ctrl + S to quick-save using the selected image format.</p>
-          </div>
-        </div>
-      </div>
-    </SettingsDrawer>
+    <SettingsPanel
+      open={settingsOpen}
+      onToggle={() => setSettingsOpen((v) => !v)}
+      board={{
+        showText,
+        setShowText,
+        boardTitle,
+        setBoardTitle,
+        boardDescription,
+        setBoardDescription,
+        brandingPreset,
+        setBrandingPreset,
+        logoSrc,
+        setLogoSrc,
+        logoSize,
+        setLogoSize,
+        logoRounded,
+        setLogoRounded,
+        selectedTemplate,
+        layoutMode,
+        setLayoutMode,
+        zoom,
+        setZoom,
+        columns,
+        setColumns,
+        rows,
+        setRows,
+        gap,
+        setGap,
+        boardPadding,
+        setBoardPadding,
+        rounded,
+        setRounded,
+        shadow,
+        setShadow,
+        showSafeMargin,
+        setShowSafeMargin,
+        bg,
+        setBg,
+      }}
+      resetSettings={handleResetSettings}
+      handleTemplateChange={handleTemplateChange}
+      onLogoFiles={onLogoFiles}
+      exportFormat={exportFormat}
+      setExportFormat={setExportFormat}
+      exportError={exportError}
+      handleExport={handleExport}
+      exportAsPDF={exportAsPDF}
+      saveBoardFile={saveBoardFile}
+      loadBoardFile={loadBoardFile}
+    />
     <AssetPanel
         assets={assets}
         open={assetPanelOpen}
@@ -987,24 +729,7 @@ export default function MethodMosaic() {
           </div>
         </div>
       )}
-      {cropOpenId && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onMouseUp={onPreviewMouseUpLeave} onMouseLeave={onPreviewMouseUpLeave}>
-          <div className="w-full max-w-[720px] bg-white dark:bg-neutral-900 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-700 p-6">
-            <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-semibold">Adjust Crop</h3><div className="flex items-center gap-2"><Button variant="ghost" onClick={closeCrop}>Cancel</Button><Button variant="default" onClick={applyCrop}>Apply</Button></div></div>
-            <div ref={previewRef} className="mx-auto mb-4 w-[420px] h-[420px] bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 cursor-grab" onMouseDown={onPreviewMouseDown} onMouseMove={onPreviewMouseMove}>
-              {(() => { const img = images.find((i) => i.id === cropOpenId); if (!img) return null; return (<img src={img.src} alt="preview" className="w-full h-full object-cover select-none" style={{ objectPosition: `${tempCrop.x}% ${tempCrop.y}%`, transform: `scale(${tempCrop.zoom})`, transformOrigin: "center center" }} draggable={false}/>); })()}
-            </div>
-            <div className="space-y-3">
-              <div><Label className="text-xs">Zoom</Label><Slider min={1} max={4} step={0.01} value={[tempCrop.zoom]} onValueChange={([v]) => setTempCrop((c) => ({ ...c, zoom: v }))} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label className="text-xs">X Position</Label><Slider min={0} max={100} step={0.5} value={[tempCrop.x]} onValueChange={([v]) => setTempCrop((c) => ({ ...c, x: v }))} /></div>
-                <div><Label className="text-xs">Y Position</Label><Slider min={0} max={100} step={0.5} value={[tempCrop.y]} onValueChange={([v]) => setTempCrop((c) => ({ ...c, y: v }))} /></div>
-              </div>
-              <p className="text-[11px] text-neutral-500">Tip: drag to pan • scroll to zoom • arrows to nudge</p>
-            </div>
-          </div>
-        </div>
-      )}
+      <CropDialog image={images.find((i) => i.id === cropImageId)} onClose={closeCrop} onApply={handleCropApply} />
     </div>
   );
 }
