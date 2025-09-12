@@ -17,8 +17,7 @@ import SafeMarginOverlay from "@/components/SafeMarginOverlay";
 import VirtualImage from "@/components/VirtualImage";
 import pkg from "../package.json";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
-
-const cx = (...cls) => cls.filter(Boolean).join(" ");
+import { cx } from "@/utils/cx";
 const isTauri = () => typeof window !== "undefined" && (window.__TAURI__ || window.__TAURI_IPC__ || window.__TAURI_INTERNALS__);
 /** @typedef {{x:number,y:number,zoom:number}} Crop */
 /** @typedef {{id:string, src:string, w?:number, h?:number, crop?:Crop}} BoardImage */
