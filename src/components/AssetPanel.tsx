@@ -3,12 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LayoutGrid, Trash2 } from "lucide-react";
 import { cx } from "@/utils/cx";
+import { Asset } from "@/types";
 
-/**
- * @typedef {{id:string, src:string, name:string, w?:number, h?:number}} Asset
- */
+interface AssetPanelProps {
+  assets: Asset[];
+  open: boolean;
+  onToggle: () => void;
+  onRemoveAsset: (id: string) => void;
+  onClearAssets: () => void;
+}
 
-export default function AssetPanel({ assets, open, onToggle, onRemoveAsset, onClearAssets }) {
+export default function AssetPanel({ assets, open, onToggle, onRemoveAsset, onClearAssets }: AssetPanelProps) {
   const [query, setQuery] = useState("");
   const filtered = assets.filter((a) => a.name.toLowerCase().includes(query.toLowerCase()));
 

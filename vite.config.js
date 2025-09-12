@@ -10,7 +10,10 @@ const base = process.env.VITE_BASE_PATH || '/Method-Mosaic/'
 export default defineConfig({
   base,
   plugins: [react()],
-  resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
+  resolve: {
+    alias: { '@': path.resolve(__dirname, 'src') },
+    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
+  },
   build: {
     rollupOptions: {
       external: ['@tauri-apps/api/dialog', '@tauri-apps/api/fs']
