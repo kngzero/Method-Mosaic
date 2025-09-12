@@ -1,5 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 
+interface VirtualImageProps {
+  src: string;
+  alt: string;
+  force?: boolean;
+  wrapperClassName?: string;
+  wrapperStyle?: React.CSSProperties;
+  imgClassName?: string;
+  imgStyle?: React.CSSProperties;
+}
+
 export default function VirtualImage({
   src,
   alt,
@@ -8,8 +18,8 @@ export default function VirtualImage({
   wrapperStyle = {},
   imgClassName = "",
   imgStyle = {},
-}) {
-  const ref = useRef(null);
+}: VirtualImageProps) {
+  const ref = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
   const [loaded, setLoaded] = useState(false);
 

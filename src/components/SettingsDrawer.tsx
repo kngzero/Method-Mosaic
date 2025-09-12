@@ -2,7 +2,13 @@ import React from "react";
 import { Settings2 } from "lucide-react";
 import { cx } from "@/utils/cx";
 
-export default function SettingsDrawer({ open, onToggle, children }) {
+interface SettingsDrawerProps {
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+export default function SettingsDrawer({ open, onToggle, children }: SettingsDrawerProps) {
   return (
     <div className="fixed right-0 z-40 flex bottom-0" style={{ top: "var(--header-height)" }}>
       <button
