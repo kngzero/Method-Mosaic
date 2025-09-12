@@ -44,6 +44,21 @@ npm run deploy   # Build and publish dist/ to GitHub Pages
 ```
 `npm run deploy` requires the [`gh-pages`](https://www.npmjs.com/package/gh-pages) CLI.
 
+## Deployment
+
+When hosting the app under a subpath (such as GitHub Pages), set the
+`VITE_BASE_PATH` environment variable to ensure assets are loaded from the
+correct base URL.
+
+```bash
+VITE_BASE_PATH=/Method-Mosaic/ npm run build
+# or
+VITE_BASE_PATH=/Method-Mosaic/ npm run deploy
+```
+
+Omit `VITE_BASE_PATH` for local development where the site is served from the
+root path.
+
 ## Project Structure
 ```
 .
