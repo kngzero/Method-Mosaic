@@ -16,6 +16,7 @@ import useBoardState, { BRANDING_PRESETS, withDefaultCrop } from "@/hooks/useBoa
 import pkg from "../package.json";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { cx } from "@/utils/cx";
+import { saveAssets, loadAssets } from "@/utils/storage";
 const isTauri = () => typeof window !== "undefined" && (window.__TAURI__ || window.__TAURI_IPC__ || window.__TAURI_INTERNALS__);
 export default function MethodMosaic() {
   const {
@@ -99,24 +100,37 @@ export default function MethodMosaic() {
   const canReorder = layoutMode !== "auto";
 
   useEffect(() => {
-    const stored = localStorage.getItem("assets");
-    if (stored) {
-      try { setAssets(JSON.parse(stored)); } catch {}
-    }
+    (async () => {
+      try {
+        const stored = await loadAssets();
+        if (stored) setAssets(stored);
+      } catch {
+        const stored = localStorage.getItem("assets");
+        if (stored) {
+          try { setAssets(JSON.parse(stored)); } catch {}
+        }
+      }
+    })();
   }, []);
   useEffect(() => {
-    try {
-      localStorage.setItem("assets", JSON.stringify(assets));
-    } catch (err) {
-      if (err && (err.name === "QuotaExceededError" || err.code === 22)) {
-        if (!isTauri()) {
-          // alert("Storage limit reached. Please remove some images to continue.");
+    (async () => {
+      try {
+        await saveAssets(assets);
+      } catch {
+        try {
+          localStorage.setItem("assets", JSON.stringify(assets));
+        } catch (err) {
+          if (err && (err.name === "QuotaExceededError" || err.code === 22)) {
+            if (!isTauri()) {
+              alert("Storage limit reached. Please remove some images to continue.");
+            }
+            console.warn("Failed to persist assets: storage quota exceeded");
+          } else {
+            console.warn("Failed to persist assets", err);
+          }
         }
-        console.warn("Failed to persist assets: storage quota exceeded");
-      } else {
-        console.warn("Failed to persist assets", err);
       }
-    }
+    })();
   }, [assets]);
 
   useEffect(() => {
