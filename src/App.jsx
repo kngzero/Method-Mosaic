@@ -6,12 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import * as htmlToImage from "html-to-image";
 import jsPDF from "jspdf";
 import Review from "@/components/Review";
-import AssetPanel from "@/components/AssetPanel";
 import { TEMPLATES } from "@/components/TemplateSelector";
 import SafeMarginOverlay from "@/components/SafeMarginOverlay";
 import VirtualImage from "@/components/VirtualImage";
-import SettingsPanel from "@/components/SettingsPanel";
 import CropDialog from "@/components/CropDialog";
+import Sidebar from "@/components/Sidebar";
 import useBoardState, { BRANDING_PRESETS, withDefaultCrop } from "@/hooks/useBoardState";
 import pkg from "../package.json";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
@@ -76,8 +75,6 @@ export default function MethodMosaic() {
     history,
     future,
   } = useBoardState();
-  const [assetPanelOpen, setAssetPanelOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(true);
   const [reviewOpen, setReviewOpen] = useState(false);
   const originalOrderRef = useRef([]);
   const [draggingId, setDraggingId] = useState(null);
@@ -459,11 +456,6 @@ export default function MethodMosaic() {
     setImages((prev) => prev.map((im) => (im.id === cropImageId ? { ...im, crop } : im)));
     setCropImageId(null);
   };
-  const handleResetSettings = useCallback(() => {
-    resetBoard();
-    setExportFormat("png");
-    setTimeout(() => setGridCell(getCellPx()), 0);
-  }, [resetBoard]);
   function onResizeStart(id){ return (e)=>{ if(layoutMode !== "square") return; const it = images.find(i=>i.id===id); if(!it) return; spanDragRef.current = { id, sx: e.clientX, sy: e.clientY, baseC: it.colSpan || 1, baseR: it.rowSpan || 1 }; window.addEventListener("mousemove", onResizing); window.addEventListener("mouseup", onResizeEnd); }; }
   function onResizing(e){ const st = spanDragRef.current; if(!st) return; const cell = getCellPx(); const dx = e.clientX - st.sx, dy = e.clientY - st.sy; const addC = Math.round(dx / (cell + gap)); const addR = Math.round(dy / (cell + gap)); const nc = Math.max(1, Math.min(columns, (st.baseC || 1) + addC)); const nr = Math.max(1, (st.baseR || 1) + addR); setImages(prev => prev.map(i => i.id===st.id ? { ...i, colSpan: nc, rowSpan: nr } : i)); }
   function onResizeEnd(){ window.removeEventListener("mousemove", onResizing); window.removeEventListener("mouseup", onResizeEnd); spanDragRef.current = null; }
@@ -669,9 +661,10 @@ export default function MethodMosaic() {
         </div>
       </div>
     </div>
-    <SettingsPanel
-      open={settingsOpen}
-      onToggle={() => setSettingsOpen((v) => !v)}
+    <Sidebar
+      assets={assets}
+      onRemoveAsset={removeAsset}
+      onClearAssets={clearAssets}
       board={{
         showText,
         setShowText,
@@ -709,7 +702,6 @@ export default function MethodMosaic() {
         bg,
         setBg,
       }}
-      resetSettings={handleResetSettings}
       handleTemplateChange={handleTemplateChange}
       onLogoFiles={onLogoFiles}
       exportFormat={exportFormat}
@@ -720,13 +712,6 @@ export default function MethodMosaic() {
       saveBoardFile={saveBoardFile}
       loadBoardFile={loadBoardFile}
     />
-    <AssetPanel
-        assets={assets}
-        open={assetPanelOpen}
-        onToggle={() => setAssetPanelOpen((v) => !v)}
-        onRemoveAsset={removeAsset}
-        onClearAssets={clearAssets}
-      />
       {reviewOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
           <div className="relative bg-white dark:bg-neutral-900 rounded-2xl shadow-xl max-w-md w-full p-6">
