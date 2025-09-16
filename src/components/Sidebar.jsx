@@ -95,7 +95,7 @@ function LayoutTab({ board, handleTemplateChange }) {
         <SelectBox value={board.layoutMode} onChange={board.setLayoutMode}>
           <option value="auto">Auto</option>
           <option value="grid">Grid</option>
-          <option value="square">Square</option>
+          <option value="square">Mosaic</option>
         </SelectBox>
       </div>
       <div className="space-y-2">
