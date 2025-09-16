@@ -561,7 +561,7 @@ export default function MethodMosaic() {
         <div className="max-w-[1400px] mx-auto">
         <div className="space-y-4">
           <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-          <p className="text-sm text-neutral-500">Drop images • Paste • {canReorder ? "Drag tiles to reorder" : "Switch to Grid or Square to reorder"} • Reset order</p>
+          <p className="text-sm text-neutral-500">Drop images • Paste • {canReorder ? "Drag tiles to reorder" : "Switch to Grid or Mosaic to reorder"} • Reset order</p>
           <Card className="bg-transparent rounded-none shadow-none">
             <CardContent className="p-4 md:p-6">
               <div
