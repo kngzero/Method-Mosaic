@@ -48,7 +48,9 @@ npm run deploy   # Build and publish dist/ to GitHub Pages
 
 When hosting the app under a subpath (such as GitHub Pages), set the
 `VITE_BASE_PATH` environment variable to ensure assets are loaded from the
-correct base URL.
+correct base URL. Deployments that serve the site from the root (including
+Vercel) work with the default `/` base, and Vercel can explicitly enforce this
+by setting `VITE_BASE_PATH=/` in the project environment variables.
 
 ```bash
 VITE_BASE_PATH=/Method-Mosaic/ npm run build
